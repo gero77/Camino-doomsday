@@ -1,0 +1,19 @@
+{
+  "name": "Camino a Doomsday",
+  "short_name": "Doomsday",
+  "description": "Las 40 películas y series en orden hacia Avengers: Doomsday, con progreso para cada uno.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0c0c0e",
+  "theme_color": "#141417",
+  "lang": "es-AR",
+  "dir": "ltr",
+  "categories": ["entertainment", "utilities"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

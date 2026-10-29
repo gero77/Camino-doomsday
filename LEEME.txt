@@ -1,0 +1,79 @@
+CAMINO A DOOMSDAY — cómo instalarlo
+===================================
+
+El paquete tiene 6 archivos. Van todos juntos, en la misma carpeta:
+
+  index.html            la app entera (los 40 pósters van adentro)
+  manifest.webmanifest  nombre, ícono y colores de la app
+  sw.js                 hace que funcione sin internet
+  icon-192.png          ícono
+  icon-512.png          ícono
+  icon-maskable.png     ícono para Android
+
+
+1. USARLO YA EN LA PC, SIN SUBIR NADA
+-------------------------------------
+Doble clic en index.html. Abre en el navegador y funciona completo,
+sin internet. No se instala como app, pero sirve para usarlo hoy.
+Podés arrastrarlo a la barra de tareas para tenerlo a mano.
+
+
+2. SUBIRLO PARA PODER INSTALARLO (10 minutos, gratis, una sola vez)
+-------------------------------------------------------------------
+Para que se instale como app de verdad necesita una dirección web propia.
+La vía más simple es GitHub Pages:
+
+  a. Creá una cuenta en github.com si no tenés.
+  b. New repository. Nombre: camino-doomsday. Marcá "Public". Create.
+  c. En el repo vacío: "uploading an existing file". Arrastrá los 6
+     archivos de esta carpeta. Commit changes.
+  d. Settings > Pages. En "Branch" elegí main y carpeta / (root). Save.
+  e. Esperá un minuto y recargá. Arriba aparece la dirección, del estilo
+     https://TUUSUARIO.github.io/camino-doomsday/
+
+Esa dirección es la app. Guardala.
+
+
+3. INSTALARLO EN EL GALAXY S25
+------------------------------
+Abrí la dirección en Chrome. Menú de tres puntos > "Instalar aplicación"
+(o "Agregar a la pantalla de inicio"). Aceptá.
+
+Queda el ícono en el cajón de apps y en la pantalla de inicio. Al abrirlo
+no se ve la barra del navegador: es una app más. Anda sin señal.
+
+En Samsung Internet: menú > "Agregar página a" > "Pantalla de inicio".
+
+
+4. INSTALARLO EN LA PC
+----------------------
+Abrí la dirección en Chrome o Edge. En la barra de direcciones, a la
+derecha, aparece un ícono de instalar (una pantalla con una flecha).
+Clic > Instalar.
+
+Queda en el menú Inicio con su ícono, abre en ventana propia sin barra
+del navegador y se puede anclar a la barra de tareas. Anda sin internet.
+
+
+5. CUANDO TE PASE UNA VERSIÓN NUEVA
+-----------------------------------
+Reemplazá los archivos en GitHub (subí los nuevos encima, misma carpeta).
+Importante: antes de subir, abrí sw.js y cambiá la línea
+
+  const VERSION = "v1";
+
+por "v2", "v3", etc. Eso es lo que avisa a los teléfonos y a la PC que
+hay algo nuevo. Sin ese cambio pueden seguir mostrando la versión vieja.
+
+La app actualizada aparece sola la próxima vez que la abran, o a la
+segunda vez si justo la tenían abierta.
+
+
+LO QUE SE GUARDA Y LO QUE NO
+----------------------------
+Las marcas de visto y los nombres de las barras se guardan en el
+dispositivo donde marcás. No viajan entre el teléfono y la PC, ni entre
+dos personas: cada uno lleva su propia cuenta en su aparato.
+
+Ojo: la versión instalada y la del navegador son dos lugares distintos.
+Si venías marcando en el navegador, al instalar la app arrancás de cero.
