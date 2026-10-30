@@ -1,6 +1,6 @@
 // Camino a Doomsday — service worker
 // Subí el número de VERSION cada vez que reemplaces los archivos: fuerza la actualización.
-const VERSION = "v4";
+const VERSION = "v5";
 const CACHE = "doomsday-" + VERSION;
 const ASSETS = [
   "./",

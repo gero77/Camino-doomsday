@@ -2,7 +2,7 @@
   "name": "Camino a Doomsday",
   "short_name": "Doomsday",
   "description": "Las 40 películas y series en orden hacia Avengers: Doomsday, con progreso para cada uno.",
-  "start_url": "./index.html",
+  "start_url": "./index.html?app=2",
   "scope": "./",
   "display": "standalone",
   "orientation": "any",
