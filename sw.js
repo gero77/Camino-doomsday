@@ -1,14 +1,14 @@
 // Camino a Doomsday — service worker
 // Subí el número de VERSION cada vez que reemplaces los archivos: fuerza la actualización.
-const VERSION = "v2";
+const VERSION = "v3";
 const CACHE = "doomsday-" + VERSION;
 const ASSETS = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
-  "./icon-192.png",
-  "./icon-512.png",
-  "./icon-maskable.png"
+  "./icon-192-b.png",
+  "./icon-512-b.png",
+  "./icon-maskable-b.png"
 ];
 
 self.addEventListener("install", (e) => {
