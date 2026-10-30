@@ -23,6 +23,8 @@ img{max-width:100%}
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-app-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/firebase@10.12.2/firebase-firestore-compat.js"></script>
 <style>
 /* Layout: cartelera de cine — fichas con póster, overlay al hover/tap, cabecera fija con
    barras de progreso configurables (1 a 4, nombre editable) y velo verde Doom que avanza
@@ -106,6 +108,39 @@ h1{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size
 .sheet .go{background:var(--doom);border-color:var(--doom);color:#0c0c0e}
 .sheet .hint{font-family:var(--cond);font-size:12px;color:var(--fg-dim);text-align:center;max-width:36ch;line-height:1.5}
 
+/* ---------- track colaborativo ---------- */
+.sync-btn{border-style:solid;border-color:color-mix(in srgb,var(--t1) 55%,var(--line));color:var(--t1)}
+.sync-btn.on{background:color-mix(in srgb,var(--t1) 16%,var(--bg-3))}
+.panel{position:fixed;inset:0;z-index:60;background:rgba(6,6,8,.92);display:flex;align-items:center;
+  justify-content:center;
+  padding:max(18px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px))
+          max(18px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.panel .box{background:var(--bg-2);border:1px solid var(--line);border-radius:12px;padding:20px 18px;
+  width:min(420px,100%);max-height:86vh;overflow-y:auto;display:flex;flex-direction:column;gap:13px}
+.panel h2{font-family:var(--display);text-transform:uppercase;font-size:23px;margin:0;line-height:1.05;font-weight:700}
+.panel p{margin:0;font-size:13.5px;color:var(--fg-dim);line-height:1.5}
+.panel label{font-family:var(--cond);font-size:11px;letter-spacing:1.3px;text-transform:uppercase;color:var(--fg-dim)}
+.panel input{width:100%;background:var(--bg-3);border:1px solid var(--line);border-radius:6px;color:var(--fg);
+  padding:10px 12px;font-family:var(--display);font-size:20px;letter-spacing:4px;text-transform:uppercase}
+.panel input:focus{outline:none;border-color:var(--t1)}
+.panel .btn{font-family:var(--cond);font-size:12px;letter-spacing:1.2px;text-transform:uppercase;font-weight:600;
+  padding:10px 14px;border-radius:6px;cursor:pointer;border:1px solid var(--line);background:var(--bg-3);color:var(--fg)}
+.panel .btn.go{background:var(--t1);border-color:var(--t1);color:#0c0c0e}
+.panel .btn.danger{color:var(--obl);border-color:color-mix(in srgb,var(--obl) 45%,var(--line))}
+.panel .btn[disabled]{opacity:.45;cursor:default}
+.panel .row{display:flex;gap:8px;flex-wrap:wrap}
+.panel .row .btn{flex:1 1 auto}
+.panel .code{font-family:var(--display);font-size:34px;letter-spacing:7px;text-align:center;color:var(--t1);
+  background:var(--bg-3);border:1px dashed color-mix(in srgb,var(--t1) 45%,var(--line));border-radius:8px;
+  padding:14px 8px;word-break:break-all}
+.panel .sep{border-top:1px solid var(--line);margin:2px 0}
+.panel .msg{font-size:13px;line-height:1.45}
+.panel .msg.err{color:var(--obl)}
+.panel .msg.ok{color:var(--doom)}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--t1);margin-right:6px;
+  vertical-align:middle}
+.dot.off{background:var(--opt)}
+
 /* ---------- grilla ---------- */
 main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
   padding-block:16px 48px;max-width:1240px;margin:0 auto}
@@ -188,6 +223,7 @@ footer{font-family:var(--cond);font-size:12px;color:var(--fg-dim);letter-spacing
     <div class="actions">
       <button class="addbar" id="addbar">+ Agregar barra</button>
       <button class="addbar share-btn" id="share">Compartir resumen</button>
+      <button class="addbar sync-btn" id="sync">Track colaborativo</button>
     </div>
   </div>
 </div>
@@ -270,15 +306,21 @@ const JOKES=[
 "Listo. Vas al cine a explicarle todo al de al lado, te lo haya pedido o no."];
 const MAX=4, TOTAL=F.filter(f=>f.g!=="cine").length, KEY="dd_trackers_v2";
 
+const rid=()=>Math.random().toString(36).slice(2,10);
 function loadState(){
+  let t=null;
   try{
     const raw=localStorage.getItem(KEY);
-    if(raw){const t=JSON.parse(raw);if(Array.isArray(t)&&t.length)return t}
-    const old=[["dd_gero_v1","Gero"],["dd_ro_v1","Ro"]].map(([k,n])=>{
-      const v=localStorage.getItem(k);return v?{name:n,seen:JSON.parse(v)}:null}).filter(Boolean);
-    if(old.length)return old;
+    if(raw){const p=JSON.parse(raw);if(Array.isArray(p)&&p.length)t=p}
+    if(!t){
+      const old=[["dd_gero_v1","Gero"],["dd_ro_v1","Ro"]].map(([k,n])=>{
+        const v=localStorage.getItem(k);return v?{name:n,seen:JSON.parse(v)}:null}).filter(Boolean);
+      if(old.length)t=old;
+    }
   }catch(e){}
-  return [{name:"Progreso",seen:[]}];
+  if(!t)t=[{name:"Progreso",seen:[]}];
+  t.forEach(x=>{if(!x.id)x.id=rid()});   // id estable: lo necesita la sincronizacion
+  return t;
 }
 let T=loadState();
 function saveState(){try{localStorage.setItem(KEY,JSON.stringify(T))}catch(e){}}
@@ -369,31 +411,182 @@ document.addEventListener("change",e=>{
   const cb=e.target;if(cb.type!=="checkbox")return;
   const k=+cb.dataset.k,i=+cb.dataset.i,s=T[k].seen;
   if(cb.checked){if(!s.includes(i))s.push(i)}else T[k].seen=s.filter(x=>x!==i);
-  saveState();paint();
+  saveState();paint();pushOne(k,"seen");
 });
 bars.addEventListener("input",e=>{
   if(!e.target.classList.contains("who-in"))return;
-  T[+e.target.dataset.k].name=e.target.value;saveState();renderChecks();paint();
+  const k=+e.target.dataset.k;
+  T[k].name=e.target.value;saveState();renderChecks();paint();pushOne(k,"name");
 });
 bars.addEventListener("blur",e=>{
   if(!e.target.classList.contains("who-in"))return;
-  if(!e.target.value.trim()){e.target.value="Progreso";T[+e.target.dataset.k].name="Progreso";saveState();renderChecks();paint()}
+  if(!e.target.value.trim()){
+    const k=+e.target.dataset.k;
+    e.target.value="Progreso";T[k].name="Progreso";saveState();renderChecks();paint();pushOne(k,"name");
+  }
 },true);
 bars.addEventListener("click",e=>{
   const b=e.target.closest(".del");if(!b)return;
-  T.splice(+b.dataset.del,1);saveState();renderBars();
+  T.splice(+b.dataset.del,1);saveState();renderBars();pushAll();
 });
 addBtn.addEventListener("click",()=>{
   if(T.length>=MAX)return;
-  T.push({name:"Nombre",seen:[]});saveState();renderBars();
+  T.push({id:rid(),name:"Nombre",seen:[]});saveState();renderBars();pushAll();
   const ins=bars.querySelectorAll(".who-in");ins[ins.length-1].select();
 });
 document.getElementById("reset").addEventListener("click",()=>{
-  T.forEach(t=>t.seen=[]);saveState();paint();
+  T.forEach(t=>t.seen=[]);saveState();paint();pushAll();
 });
 const d=Math.ceil((new Date(2026,11,18)-new Date())/86400000);
 document.getElementById("days").textContent=d>0?`faltan ${d} días`:"ya está en cines";
 renderBars();
+
+/* ---------- track colaborativo ---------- */
+const FB={apiKey:"AIzaSyCNxabJ_d3t_3rGE5axCx3ZSlDOUGep96s",
+  authDomain:"road-to-doomsday-13e8e.firebaseapp.com",
+  projectId:"road-to-doomsday-13e8e",
+  storageBucket:"road-to-doomsday-13e8e.firebasestorage.app",
+  messagingSenderId:"99468053480",
+  appId:"1:99468053480:web:8738cdfb940f9667bef25d"};
+const CKEY="dd_track_v1", ALPHA="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+let db=null, code=null, unsub=null, remote=false, timers={};
+try{code=localStorage.getItem(CKEY)||null}catch(e){}
+
+function getDb(){
+  if(db)return db;
+  if(typeof firebase==="undefined"||!firebase.firestore)return null;
+  try{
+    firebase.initializeApp(FB);
+    db=firebase.firestore();
+    try{db.enablePersistence({synchronizeTabs:true}).catch(()=>{})}catch(e){}
+  }catch(e){try{db=firebase.firestore()}catch(e2){return null}}
+  return db;
+}
+function newCode(){let s="";for(let i=0;i<8;i++)s+=ALPHA[Math.floor(Math.random()*ALPHA.length)];return s}
+function asDoc(){
+  const t={};T.forEach(x=>{t[x.id]={name:x.name,seen:x.seen}});
+  return {v:1,order:T.map(x=>x.id),t:t};
+}
+function fromDoc(d){
+  if(!d||!d.t)return null;
+  const order=Array.isArray(d.order)?d.order:Object.keys(d.t);
+  return order.filter(id=>d.t[id]).slice(0,MAX).map(id=>({
+    id:id,name:String(d.t[id].name||"Progreso"),
+    seen:Array.isArray(d.t[id].seen)?d.t[id].seen.filter(n=>Number.isInteger(n)):[]
+  }));
+}
+function pushAll(){
+  const d=getDb();if(!d||!code||remote)return;
+  d.collection("tracks").doc(code).set(asDoc(),{merge:false}).catch(()=>{});
+}
+function pushOne(k,field){
+  const d=getDb();if(!d||!code||remote||!T[k])return;
+  const id=T[k].id,key=id+"|"+field;
+  clearTimeout(timers[key]);
+  timers[key]=setTimeout(()=>{
+    const val=field==="seen"?T[k].seen:T[k].name;
+    d.collection("tracks").doc(code).update({["t."+id+"."+field]:val})
+      .catch(()=>{pushAll()});   // si el documento ya no existe, lo rehace entero
+  },400);
+}
+function sameShape(a,b){
+  return a.length===b.length&&a.every((x,i)=>x.id===b[i].id&&x.name===b[i].name);
+}
+function listen(c){
+  const d=getDb();if(!d)return;
+  if(unsub){unsub();unsub=null}
+  unsub=d.collection("tracks").doc(c).onSnapshot(snap=>{
+    const arr=fromDoc(snap.data());
+    if(!arr||!arr.length)return;
+    if(JSON.stringify(arr)===JSON.stringify(T))return;
+    remote=true;
+    const keep=sameShape(arr,T);
+    T=arr;saveState();
+    keep?paint():renderBars();
+    remote=false;
+    syncBadge();
+  },()=>{syncBadge("error")});
+}
+function syncBadge(state){
+  const b=document.getElementById("sync");
+  b.classList.toggle("on",!!code);
+  b.textContent=code?("Track "+code):"Track colaborativo";
+  if(state==="error")b.textContent="Track (sin conexión)";
+}
+function setCode(c){
+  code=c;
+  try{c?localStorage.setItem(CKEY,c):localStorage.removeItem(CKEY)}catch(e){}
+  if(unsub){unsub();unsub=null}
+  if(c)listen(c);
+  syncBadge();
+}
+
+function openPanel(){
+  const box=document.createElement("div");box.className="panel";
+  const d=getDb();
+  const off=!d?`<p class="msg err">No se pudo cargar la sincronización. Revisá la conexión y volvé a abrir esta ventana.</p>`:"";
+  box.innerHTML=`<div class="box">
+    <h2>Track colaborativo</h2>
+    ${code?`
+      <p>Estás en un track compartido. Pasale este código a quien quieras y va a ver y marcar lo mismo que vos, en vivo.</p>
+      <div class="code">${code}</div>
+      <div class="row">
+        <button class="btn go" data-a="copy">Copiar código</button>
+        <button class="btn danger" data-a="leave">Salir del track</button>
+      </div>
+      <p>Al salir te quedás con una copia de las marcas actuales, solo que deja de sincronizarse.</p>
+    `:`
+      ${off}
+      <p>Creá un track y pasá el código, o ingresá el de otra persona. A partir de ahí comparten las barras y las marcas en vivo.</p>
+      <button class="btn go" data-a="create" ${d?"":"disabled"}>Crear track nuevo</button>
+      <div class="sep"></div>
+      <label for="joincode">Tengo un código</label>
+      <input id="joincode" maxlength="8" placeholder="XXXXXXXX" autocomplete="off" spellcheck="false">
+      <button class="btn" data-a="join" ${d?"":"disabled"}>Unirme</button>
+      <p class="msg" data-msg></p>
+    `}
+    <div class="sep"></div>
+    <button class="btn" data-a="close">Cerrar</button>
+  </div>`;
+  document.body.appendChild(box);
+  const msg=(txt,cls)=>{const m=box.querySelector("[data-msg]");if(m){m.textContent=txt;m.className="msg "+(cls||"")}};
+  box.addEventListener("click",async e=>{
+    const a=e.target.dataset.a;
+    if(e.target===box||a==="close"){box.remove();return}
+    if(a==="copy"){
+      try{await navigator.clipboard.writeText(code);e.target.textContent="Copiado"}
+      catch(err){e.target.textContent="Copialo a mano"}
+      return;
+    }
+    if(a==="leave"){setCode(null);box.remove();return}
+    if(a==="create"){
+      const d2=getDb();if(!d2)return;
+      e.target.disabled=true;e.target.textContent="Creando…";
+      const c=newCode();
+      try{
+        await d2.collection("tracks").doc(c).set(asDoc());
+        setCode(c);box.remove();openPanel();
+      }catch(err){e.target.disabled=false;e.target.textContent="Crear track nuevo";
+        msg("No se pudo crear el track. Probá de nuevo en un momento.","err")}
+      return;
+    }
+    if(a==="join"){
+      const d2=getDb();if(!d2)return;
+      const c=(box.querySelector("#joincode").value||"").trim().toUpperCase();
+      if(c.length!==8){msg("El código tiene que tener 8 caracteres.","err");return}
+      e.target.disabled=true;msg("Buscando…");
+      try{
+        const snap=await d2.collection("tracks").doc(c).get();
+        if(!snap.exists){e.target.disabled=false;msg("No existe ningún track con ese código.","err");return}
+        setCode(c);box.remove();openPanel();
+      }catch(err){e.target.disabled=false;msg("No se pudo conectar. Revisá la conexión.","err")}
+      return;
+    }
+  });
+}
+document.getElementById("sync").addEventListener("click",openPanel);
+syncBadge();
+if(code)listen(code);
 
 /* ---------- resumen compartible ---------- */
 const HEX=["#e8a33d","#4fc1c9","#a378e0","#6bbf73"];
@@ -491,6 +684,8 @@ async function buildImage(withPosters){
   x.fillStyle="#2a2a31";x.fillRect(64,H-92,W-128,1);
   x.fillStyle="#6f6f7a";x.font='500 24px "Barlow Semi Condensed", sans-serif';
   x.fillText(location.host?location.host+location.pathname.replace(/index\.html$/,""):"Camino a Doomsday",64,H-50);
+  if(code){x.textAlign="right";x.fillStyle="#4fc1c9";
+    x.fillText("Track "+code,W-64,H-50);x.textAlign="left"}
   return c;
 }
 document.getElementById("share").addEventListener("click",async()=>{
