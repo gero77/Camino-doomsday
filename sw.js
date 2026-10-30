@@ -1,6 +1,6 @@
 // Camino a Doomsday — service worker
 // Subí el número de VERSION cada vez que reemplaces los archivos: fuerza la actualización.
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE = "doomsday-" + VERSION;
 const ASSETS = [
   "./",
@@ -37,6 +37,20 @@ self.addEventListener("fetch", (e) => {
   if (url.origin !== location.origin) {
     e.respondWith(
       fetch(req)
+        .then((res) => {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // El manifiesto y los íconos: red primero, para que un cambio de ícono se vea enseguida.
+  if (/manifest\.webmanifest$|icon-[\w-]+\.png$/.test(url.pathname)) {
+    e.respondWith(
+      fetch(req, { cache: "no-cache" })
         .then((res) => {
           const copy = res.clone();
           caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
