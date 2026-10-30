@@ -87,6 +87,24 @@ h1{font-family:var(--display);font-weight:700;text-transform:uppercase;font-size
   font-size:11px;letter-spacing:1.2px;text-transform:uppercase;padding:4px 11px;border-radius:5px;cursor:pointer}
 .addbar:hover{color:var(--fg);border-color:var(--fg-dim)}
 .addbar[disabled]{opacity:.35;cursor:default}
+.actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:8px}
+.actions .addbar{margin-top:0}
+.share-btn{border-style:solid;border-color:color-mix(in srgb,var(--doom) 55%,var(--line));color:var(--doom)}
+.share-btn:hover{border-color:var(--doom);color:var(--doom)}
+
+/* ---------- resumen compartible ---------- */
+.sheet{position:fixed;inset:0;z-index:60;background:rgba(6,6,8,.9);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:14px;
+  padding:max(18px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px))
+          max(18px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.sheet img{max-width:min(420px,100%);max-height:66vh;width:auto;border-radius:10px;
+  border:1px solid var(--line);box-shadow:0 18px 50px rgba(0,0,0,.6)}
+.sheet .row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.sheet button,.sheet a{font-family:var(--cond);font-size:12px;letter-spacing:1.2px;text-transform:uppercase;
+  font-weight:600;padding:9px 16px;border-radius:6px;cursor:pointer;border:1px solid var(--line);
+  background:var(--bg-3);color:var(--fg);text-decoration:none}
+.sheet .go{background:var(--doom);border-color:var(--doom);color:#0c0c0e}
+.sheet .hint{font-family:var(--cond);font-size:12px;color:var(--fg-dim);text-align:center;max-width:36ch;line-height:1.5}
 
 /* ---------- grilla ---------- */
 main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
@@ -167,7 +185,10 @@ footer{font-family:var(--cond);font-size:12px;color:var(--fg-dim);letter-spacing
       <div class="countdown">Estreno <b>18 dic 2026</b> · <span id="days"></span></div>
     </div>
     <div class="bars" id="bars"></div>
-    <button class="addbar" id="addbar">+ Agregar barra</button>
+    <div class="actions">
+      <button class="addbar" id="addbar">+ Agregar barra</button>
+      <button class="addbar share-btn" id="share">Compartir resumen</button>
+    </div>
   </div>
 </div>
 
@@ -373,6 +394,141 @@ document.getElementById("reset").addEventListener("click",()=>{
 const d=Math.ceil((new Date(2026,11,18)-new Date())/86400000);
 document.getElementById("days").textContent=d>0?`faltan ${d} días`:"ya está en cines";
 renderBars();
+
+/* ---------- resumen compartible ---------- */
+const HEX=["#e8a33d","#4fc1c9","#a378e0","#6bbf73"];
+function rrect(x,a,b,w,h,r){if(x.roundRect){x.beginPath();x.roundRect(a,b,w,h,r);return}
+  x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);
+  x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
+function cover(x,img,dx,dy,dw,dh){
+  const s=Math.max(dw/img.naturalWidth,dh/img.naturalHeight);
+  const w=img.naturalWidth*s,h=img.naturalHeight*s;
+  x.save();rrect(x,dx,dy,dw,dh,10);x.clip();
+  x.drawImage(img,dx+(dw-w)/2,dy+(dh-h)/2,w,h);x.restore();
+}
+function wrap(x,text,maxw){
+  const out=[];let line="";
+  for(const word of text.split(" ")){
+    const t=line?line+" "+word:word;
+    if(x.measureText(t).width>maxw&&line){out.push(line);line=word}else line=t;
+  }
+  if(line)out.push(line);return out;
+}
+async function buildImage(withPosters){
+  const W=1080, n=T.length, rowsH=n*92, pend=F.map((f,i)=>i)
+    .filter(i=>F[i].g!=="cine"&&!T.every(tr=>tr.seen.includes(i))).slice(0,3);
+  const PW=(W-128-48)/3, PH=PW*1.5;
+  const body=pend.length?(28+(withPosters?PH+96:pend.length*54+56)):120;
+  const H=344+rowsH+28+body+92;
+  const c=document.createElement("canvas");c.width=W;c.height=H;
+  const x=c.getContext("2d");
+  try{await Promise.race([document.fonts.ready,new Promise(r=>setTimeout(r,1500))])}catch(e){}
+
+  x.fillStyle="#0c0c0e";x.fillRect(0,0,W,H);
+  x.fillStyle="#141417";x.fillRect(0,0,W,268);
+  x.fillStyle="#6cc24a";x.fillRect(0,266,W,3);
+
+  x.textBaseline="alphabetic";
+  x.fillStyle="#f1efea";x.font='700 76px Oswald, "Arial Narrow", sans-serif';
+  x.fillText("CAMINO A DOOMSDAY",64,122);
+  x.font='600 30px "Barlow Semi Condensed", sans-serif';
+  x.fillStyle="#9c9aa4";x.fillText("ESTRENO 18 DIC 2026",64,172);
+  const dw=x.measureText("ESTRENO 18 DIC 2026").width;
+  x.fillStyle="#d94b3f";
+  x.fillText(d>0?"  ·  FALTAN "+d+" DÍAS":"  ·  YA ESTÁ EN CINES",64+dw,172);
+
+  const avg=Math.round(T.reduce((a,t)=>a+t.seen.length/TOTAL,0)/n*100);
+  x.fillStyle="#9c9aa4";x.font='italic 27px "Barlow Semi Condensed", sans-serif';
+  const jl=wrap(x,"“"+JOKES[Math.min(9,Math.floor(avg/10))]+"”",W-128);
+  jl.slice(0,2).forEach((l,i)=>x.fillText(l,64,216+i*33));
+
+  let y=344;
+  T.forEach((tr,k)=>{
+    const col=HEX[k%4], pc=Math.round(tr.seen.length/TOTAL*100);
+    x.fillStyle=col;x.font='600 32px "Barlow Semi Condensed", sans-serif';
+    x.fillText((tr.name||"Progreso").toUpperCase(),64,y);
+    x.font='700 40px Oswald, sans-serif';x.textAlign="right";
+    x.fillText(pc+"%",W-64,y);
+    x.font='500 24px "Barlow Semi Condensed", sans-serif';x.fillStyle="#9c9aa4";
+    x.fillText(tr.seen.length+"/"+TOTAL,W-64,y+30);x.textAlign="left";
+    x.fillStyle="#1c1c21";rrect(x,64,y+18,W-260,20,10);x.fill();
+    if(pc>0){x.fillStyle=col;rrect(x,64,y+18,Math.max(20,(W-260)*pc/100),20,10);x.fill()}
+    y+=92;
+  });
+
+  y+=28;
+  if(pend.length){
+    x.fillStyle="#6f6f7a";x.font='600 26px "Barlow Semi Condensed", sans-serif';
+    x.fillText(n>1?"LO QUE LES FALTA":"LO QUE TE FALTA",64,y);
+    y+=28;
+    if(withPosters){
+      const cards=document.querySelectorAll(".card");
+      const gap=24, pw=PW, ph=PH;
+      pend.forEach((idx,j)=>{
+        const dx=64+j*(pw+gap);
+        const img=cards[idx].querySelector("img");
+        x.fillStyle="#1c1c21";rrect(x,dx,y,pw,ph,10);x.fill();
+        if(img&&img.complete&&img.naturalWidth)cover(x,img,dx,y,pw,ph);
+        x.fillStyle="#f1efea";x.font='600 22px "Barlow Semi Condensed", sans-serif';
+        wrap(x,F[idx].t,pw).slice(0,2).forEach((l,i)=>x.fillText(l,dx,y+ph+30+i*25));
+      });
+      y+=ph+96;
+    }else{
+      pend.forEach((idx,j)=>{
+        const ty=y+22+j*54;
+        x.fillStyle="#6cc24a";rrect(x,64,ty-16,6,22,3);x.fill();
+        x.fillStyle="#f1efea";x.font='600 32px "Barlow Semi Condensed", sans-serif';
+        x.fillText(F[idx].t,88,ty+4);
+      });
+      y+=pend.length*54+56;
+    }
+  }else{
+    x.fillStyle="#6cc24a";x.font='700 44px Oswald, sans-serif';
+    x.fillText("LISTO. NOS VEMOS EN EL CINE.",64,y+40);
+    y+=120;
+  }
+
+  x.fillStyle="#2a2a31";x.fillRect(64,H-92,W-128,1);
+  x.fillStyle="#6f6f7a";x.font='500 24px "Barlow Semi Condensed", sans-serif';
+  x.fillText(location.host?location.host+location.pathname.replace(/index\.html$/,""):"Camino a Doomsday",64,H-50);
+  return c;
+}
+document.getElementById("share").addEventListener("click",async()=>{
+  const btn=document.getElementById("share");
+  btn.disabled=true;btn.textContent="Generando…";
+  let c,url;
+  try{
+    c=await buildImage(true);
+    try{url=c.toDataURL("image/png")}        // si los posters contaminan el canvas,
+    catch(e){c=await buildImage(false);url=c.toDataURL("image/png")}  // va la version con titulos
+  }catch(e){btn.disabled=false;btn.textContent="Compartir resumen";return}
+  btn.disabled=false;btn.textContent="Compartir resumen";
+  const box=document.createElement("div");box.className="sheet";
+  box.innerHTML=`<img src="${url}" alt="Resumen del progreso">
+    <div class="row">
+      <button class="go" data-act="send" hidden>Compartir</button>
+      <a class="go" data-act="dl" download="camino-doomsday.png" href="${url}">Descargar</a>
+      <button data-act="close">Cerrar</button>
+    </div>
+    <p class="hint">Si el botón no hace nada, mantené presionada la imagen para guardarla.</p>`;
+  document.body.appendChild(box);
+  // dentro de un visor embebido la descarga no esta permitida: queda el guardado manual
+  let embedded=false;try{embedded=window.self!==window.top}catch(e){embedded=true}
+  if(embedded){
+    box.querySelector('[data-act="dl"]').remove();
+    box.querySelector(".hint").textContent="Para guardarla: clic derecho sobre la imagen (o mantené presionada en el teléfono) y “Guardar imagen”.";
+  }
+  const close=()=>box.remove();
+  box.addEventListener("click",e=>{if(e.target===box||e.target.dataset.act==="close")close()});
+  c.toBlob(b=>{
+    if(!b)return;
+    const file=new File([b],"camino-doomsday.png",{type:"image/png"});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      const s=box.querySelector('[data-act="send"]');s.hidden=false;
+      s.addEventListener("click",()=>navigator.share({files:[file],title:"Camino a Doomsday"}).catch(()=>{}));
+    }
+  },"image/png");
+});
 </script>
 
 <script>
